@@ -71,7 +71,7 @@
     "exit": ["esci", "chiuditi"],
     "search": ["cerca", "cercami"],
     "reply": ["si", "sì", "certo", "certamente"],
-    "getAI": ["cerca", "cercami", "secondo te", "cosa ne pensi", "calcola", "mi dici", "dimmmi" ,"mi cerchi","mi sai dire"],
+    "getAI": ["cerca", "cercami", "secondo te", "cosa ne pensi", "calcola", "mi dici", "dimmmi" ,"mi cerchi","mi sai dire","mi trovi","trovami","dammi"],
     "upvol": ["alza", "aumenta"],
     "downvol": ["abbassa","diminusci"],
     "setvol": ["imposta"],

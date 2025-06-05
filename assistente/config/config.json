@@ -3,5 +3,7 @@
     "wakeword": "marco",
     "sleep_time": 30,
     "deltavolume": 10,
-    "layout": "uniwindow"
+    "layout": "uniwindow",
+    "musicplayer": "strawberry",
+    "browser": "vivaldi-stable"
 }

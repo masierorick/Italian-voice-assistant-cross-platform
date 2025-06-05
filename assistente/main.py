@@ -104,29 +104,99 @@ def get_installed_programs():
     return sorted(programs)
 
 
+
+def get_default_browser_windows():
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
+            prog_id = winreg.QueryValueEx(key, "ProgId")[0]
+            # La ProgId può essere tipo "ChromeHTML", "FirefoxURL" ecc.
+            # Per restituire un nome più leggibile:
+            return prog_id.lower()
+    except Exception:
+        return None
+
+
+
+def get_default_browser_macos():
+    try:
+        output = subprocess.check_output(
+            ["/usr/bin/defaults", "read", "com.apple.LaunchServices/com.apple.launchservices.secure", "LSHandlers"],
+            text=True, stderr=subprocess.DEVNULL)
+        # LSHandlers è una lista di dict in plist (non semplice da parsare)
+        # Per semplicità, cerchiamo "http" in output
+        for line in output.splitlines():
+            if '"LSHandlerURLScheme" = "http";' in line:
+                # La linea successiva dovrebbe contenere LSHandlerRoleAll con il bundle id
+                idx = output.splitlines().index(line)
+                next_line = output.splitlines()[idx + 1].strip()
+                if next_line.startswith('"LSHandlerRoleAll" ='):
+                    bundle_id = next_line.split('=')[1].strip().strip('";')
+                    # bundle_id tipo "com.google.Chrome"
+                    return bundle_id.split('.')[-1].lower()
+        return None
+    except Exception:
+        return None
+
+
+
+def get_default_browser_linux():
+    try:
+        desktop_file = subprocess.check_output(
+            ['xdg-settings', 'get', 'default-web-browser'], text=True).strip()
+        search_paths = [
+            os.path.expanduser('~/.local/share/applications/'),
+            '/usr/share/applications/',
+            '/usr/local/share/applications/'
+        ]
+
+        desktop_path = None
+        for path in search_paths:
+            candidate = os.path.join(path, desktop_file)
+            if os.path.isfile(candidate):
+                desktop_path = candidate
+                break
+
+        if not desktop_path:
+            return None
+
+        with open(desktop_path, encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('Exec='):
+                    exec_line = line.strip().split('=', 1)[1]
+                    cmd = exec_line.split()[0]
+                    # Prendo solo il nome del comando, senza directory
+                    cmd_name = os.path.basename(cmd)
+                    return cmd_name.lower()
+        return None
+    except Exception:
+        return None
+
 def get_default_browser():
     system = platform.system()
     if system == "Windows":
-        from winreg import OpenKey, HKEY_CURRENT_USER, QueryValueEx
-        try:
-            with OpenKey(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
-                return QueryValueEx(key, "ProgId")[0]
-        except Exception:
-            return None
+        return get_default_browser_windows()
     elif system == "Darwin":
-        try:
-            return os.popen("/usr/bin/defaults read com.apple.LaunchServices/com.apple.launchservices.secure | grep -i http").read()
-        except Exception:
-            return None
-    else:  # Linux
-        try:
-            return os.popen("xdg-settings get default-web-browser").read().strip()
-        except Exception:
-            return None
+        return get_default_browser_macos()
+    else:
+        return get_default_browser_linux()
+
+
 
 
 def get_browser_bookmarks():
     browser = get_default_browser().lower()
+
+    # Carica configurazione da file json
+    with open(current_dir + "/config/config.json", "r") as config_file:
+      config = json.load(config_file)
+
+    config["browser"] = browser
+    # Scrivere i dati nel file config.json
+    with open(current_dir + "/config/config.json", "w") as file:
+      json.dump(config, file, indent=4)
+
     user_home = Path.home()
     bookmarks = []
 

@@ -73,6 +73,8 @@ wakeword = config["wakeword"]
 sleep_time = config["sleep_time"]#  secondi per inattività
 deltavolume = config["deltavolume"] #valore percentuale
 layout = config["layout"]
+musicprog = config["musicplayer"] #imposta il player di default
+browser = config["browser"]
 
 attivo = False
 uscita = False
@@ -147,6 +149,18 @@ def get_groq_response(text):
         messages=[{"role": "user", "content": italian_prompt}]
     )
     return response.choices[0].message.content
+
+def estrai_url_da_rispostaIA(risposta):
+    # Se è un dizionario, estrai la parte con l'URL
+    if isinstance(risposta, dict):
+        testo = risposta.get("text", "")
+    else:
+        testo = str(risposta)
+
+    # Cerca il primo URL nella risposta
+    match = re.search(r'https?://[^\s]+', testo)
+    print(match)
+    return match.group(0) if match else None
 
 
 def cerca_youtube(query, max_risultati=5):
@@ -325,6 +339,91 @@ def apri_gestore_file(percorso="."):
         print(messages["error_messages"]["filemanger_error"])
 
 
+#gestione dei media players cross-platform
+
+def get_default_mp3_app_linux():
+    try:
+        # Ottiene il file .desktop associato
+        result = subprocess.run(
+            ["xdg-mime", "query", "default", "audio/mpeg"],
+            capture_output=True, text=True, check=True
+        )
+        desktop_file = result.stdout.strip()
+        search_paths = [
+            Path("/usr/share/applications"),
+            Path("/usr/local/share/applications"),
+            Path.home() / ".local/share/applications"
+        ]
+        for path in search_paths:
+            desktop_path = path / desktop_file
+            if desktop_path.exists():
+                with open(desktop_path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        if line.startswith("Exec="):
+                            exec_line = line[len("Exec="):].strip()
+                            # Rimuove parametri tipo %U, %F ecc.
+                            exec_line = exec_line.split()[0]
+                            return exec_line
+        return desktop_file
+    except Exception:
+        return None
+
+def get_default_mp3_app_macos():
+    try:
+        # Usa AppleScript per ottenere l'app predefinita per aprire mp3
+        tmp_mp3 = "/tmp/test.mp3"
+        if not os.path.exists(tmp_mp3):
+            open(tmp_mp3, "wb").close()
+
+        script = f'''
+        set mp3file to POSIX file "{tmp_mp3}" as alias
+        tell application "System Events"
+            set defaultApp to name of application file of (open mp3file)
+        end tell
+        return defaultApp
+        '''
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        app_name = result.stdout.strip()
+
+        # Prova a recuperare percorso eseguibile tramite mdls
+        app_paths = ["/Applications", str(Path.home() / "Applications")]
+        for path in app_paths:
+            candidate = os.path.join(path, app_name + ".app")
+            if os.path.exists(candidate):
+                return candidate  # percorso app macOS
+        return app_name
+    except Exception:
+        return None
+
+def get_default_mp3_app_windows():
+    try:
+        import winreg  # Import dinamico solo su Windows
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r".mp3") as key:
+            progid, _ = winreg.QueryValueEx(key, None)
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, fr"{progid}\\shell\\open\\command") as key:
+            command, _ = winreg.QueryValueEx(key, None)
+        # command è tipo: "C:\\Program Files\\Windows Media Player\\wmplayer.exe" "%1"
+        # Estrae solo il path eseguibile senza argomenti
+        if command.startswith('"'):
+            command = command.split('"')[1]
+        else:
+            command = command.split()[0]
+        return command
+    except Exception:
+        return None
+
+def get_default_mp3_app():
+    system = platform.system()
+    if system == "Linux":
+        return get_default_mp3_app_linux()
+    elif system == "Darwin":
+        return get_default_mp3_app_macos()
+    elif system == "Windows":
+        return get_default_mp3_app_windows()
+    return None
+
+
+#fine gestione media player
 
 def adattalingua(comando):
 
@@ -337,7 +436,10 @@ def adattalingua(comando):
         r"\bconsole\b": "konsole",
         r"\bcaffeine\b": "kaffeine",
         r"\bcate\b": "kate",
-        r"\bspegne\b": "spegni"
+        r"\bspegne\b": "spegni",
+        r"\bspenge\b": "spengi",
+        r"\bspinge\b": "spegni",
+        r"\bspingi\b": "spegni"
     }
 
     for errato, corretto in correzioni.items():
@@ -347,6 +449,8 @@ def adattalingua(comando):
 
 
 def apriProgrammi(listaprogrammi, comando):
+    global musicprog
+
     comandomod = adattalingua(comando)  # Funzione per adattare la lingua
     comando = comandomod
 
@@ -360,7 +464,17 @@ def apriProgrammi(listaprogrammi, comando):
     # Caso speciale: apri un'app musicale
     if any(word in comando for word in messages["objects"]["music"]):
 
-        musicprog = "clementine"
+        if musicprog == "" or get_default_mp3_app() != musicprog :
+
+             # Scrivere i dati nel file config.json
+             musicprog = get_default_mp3_app()
+             # Modifica solo il valore della chiave "layout"
+             config["musicplayer"] = musicprog
+
+             # Scrivere i dati nel file config.json
+             with open(config_path, "w") as file:
+                json.dump(config, file, indent=4)
+
         try:
             speak(messages["other_messages"]["music_player_opened"].format(musicprog=musicprog))
             os.system(musicprog+"&")  # Sostituisce os.system
@@ -407,17 +521,17 @@ def apriProgrammi(listaprogrammi, comando):
 
 def chiudiProgrammi(listaprogrammi, comando):
 
-    global youtubeopen
+    global youtubeopen,musicprog,browser
 
     trovato = False
 
     if any(word in comando for word in messages["objects"]["internet"]):
               youtubeopen = False
-              os.system("pkill vivaldi-bin")
+              os.system("pkill vivaldi-bin") #da vedere se inserire pkill {browser}
               speak(messages["other_messages"]["browser_closed"])
               return True
     if any(word in comando for word in messages["objects"]["music"]):
-              os.system("pkill clementine")
+              os.system(f"pkill {musicprog}")
               speak(messages["other_messages"]["music_player_closed"])
               return True
 
@@ -575,6 +689,8 @@ def comrecon(comando):
     # Normalizzazione del comando
     comando = comando.lower().strip()
 
+    comandomod = adattalingua(comando)  # Funzione per adattare la lingua
+    comando = comandomod
 
     # Scrive lo stato dell'assistente
     scrivistatus()
@@ -634,8 +750,6 @@ def comrecon(comando):
        global uscita,riavvia
 
        # Funzione per determinare ed eseguire il comando ricevuto con comandi semplificati
-       comandomod = adattalingua(comando)  # Funzione per adattare la lingua
-       comando = comandomod
 
        if not parla_sintesi:
           print(messages["other_messages"]["command"].format(comando=comando))  # Log del comando
@@ -666,7 +780,18 @@ def comrecon(comando):
           if "gestore" in comando and "file" in comando:
             apri_gestore_file(".")
           elif not apriBookmarks(listabookmarks, comando):
-            apriProgrammi(listaprogrammi, comando)
+            if not apriProgrammi(listaprogrammi, comando):
+              # Se non trovato né nei bookmarks né nei programmi, usa Groq
+              response = get_groq_response(comando)
+
+              # Supponiamo che la funzione restituisca una stringa contenente l'URL
+              url = estrai_url_da_rispostaIA(response)  # Dovrai definire questa funzione
+
+              if url:
+                Thread(target=webbrowser.open, args=(url, 2), daemon=True).start()
+                speak("Pagina di " + comando.lower() + " aperta")
+              #else:
+               # speak("Non ho trovato nulla da aprire.")
 
        #comando aggiornamento sistema cross-platform
        if any(word in comando for word in messages["commands"]["update"]) and any(word in comando for word in messages["objects"]["pc"]):
