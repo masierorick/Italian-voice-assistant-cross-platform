@@ -1,4 +1,9 @@
 # Changelog
+# [3.2.0] -2025-05-30 
+- Modificato script per eseguire l'applicazionie musicale impostata di default 
+- Adesso rileva automaticamente e cross-platform quale programma per eseguire file audio è impostato nel sistema .
+
+
 # [3.1.0] -2025-05-15
 - Inserito comando aggiornamento sistema cross - platfom 
 
