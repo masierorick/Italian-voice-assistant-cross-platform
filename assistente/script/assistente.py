@@ -1090,7 +1090,7 @@ def animazione():
 
 def listen():
     """Ciclo principale di ascolto."""
-    global time_start,parla_sintesi,layout
+    global time_start,parla_sintesi,layout,musicprog
 
     if layout == "main":
         grafica = animazione
@@ -1099,6 +1099,11 @@ def listen():
 
     #controllo player mp3 di default
     musicprog = get_default_mp3_app()
+    config["musicplayer"] = musicprog
+
+    #scrittura nel file config.json del player mp3 di default
+    with open(config_path, "w") as file:
+            json.dump(config, file, indent=4)
 
     with sr.Microphone() as source:
        #recognizer.adjust_for_ambient_noise(source, duration=1.0) #crea problemi di sensibilità
@@ -1125,20 +1130,5 @@ def listen():
                #print ("Tempo scaduto in attesa della frase.Riprovo")
 
 
-
-#non viene eseguita la  funzione se caricata nello script main.py
-if __name__ == "__main__":
-
-
-   # Scrivere i dati nel file config.json
-   musicprog = get_default_mp3_app()
-   # Modifica solo il valore della chiave "musicplayer" in config.json
-   config["musicplayer"] = musicprog
-
-   # Scrivere i dati nel file config.json
-   with open(config_path, "w") as file:
-      json.dump(config, file, indent=4)
-
-   listen()
 
 
