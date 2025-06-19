@@ -1,4 +1,8 @@
 # Changelog
+
+# [3.2.1.] -2025-06-19 
+- Inserito nella routine principale di assistente lo script per verificare il programma mp3 di default prima dell'avvio di listen 
+
 # [3.2.0] -2025-05-30 
 - Modificato script per eseguire l'applicazionie musicale impostata di default 
 - Adesso rileva automaticamente e cross-platform quale programma per eseguire file audio è impostato nel sistema .

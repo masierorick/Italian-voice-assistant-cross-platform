@@ -11,7 +11,7 @@ PySide6==6.8.2
 PySide6_Addons==6.8.1
 PySide6_Essentials==6.8.1
 python-dotenv==1.0.1
-setuptools==75.6.0
+setuptools>=75.6.0
 SpeechRecognition==3.11.0
 PyAudio==0.2.14
 pyproject-toml==0.1.0

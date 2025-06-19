@@ -340,7 +340,6 @@ def apri_gestore_file(percorso="."):
 
 
 #gestione dei media players cross-platform
-
 def get_default_mp3_app_linux():
     try:
         # Ottiene il file .desktop associato
@@ -361,12 +360,20 @@ def get_default_mp3_app_linux():
                     for line in f:
                         if line.startswith("Exec="):
                             exec_line = line[len("Exec="):].strip()
-                            # Rimuove parametri tipo %U, %F ecc.
-                            exec_line = exec_line.split()[0]
-                            return exec_line
+                            exec_parts = exec_line.split()
+                            if exec_parts[0] == "env":
+                                # Cerca il vero comando dopo 'env' e variabili d'ambiente
+                                for part in exec_parts[1:]:
+                                    if not '=' in part:
+                                        return part
+                                return "env"  # fallback
+                            else:
+                                return exec_parts[0]
         return desktop_file
-    except Exception:
+    except Exception as e:
         return None
+
+
 
 def get_default_mp3_app_macos():
     try:
@@ -394,6 +401,7 @@ def get_default_mp3_app_macos():
         return app_name
     except Exception:
         return None
+
 
 def get_default_mp3_app_windows():
     try:
@@ -464,16 +472,9 @@ def apriProgrammi(listaprogrammi, comando):
     # Caso speciale: apri un'app musicale
     if any(word in comando for word in messages["objects"]["music"]):
 
-        if musicprog == "" or get_default_mp3_app() != musicprog :
+        #if musicprog == "" or get_default_mp3_app() != musicprog : #disabilitato in modo che ogni volta esegua il controllo
 
-             # Scrivere i dati nel file config.json
-             musicprog = get_default_mp3_app()
-             # Modifica solo il valore della chiave "layout"
-             config["musicplayer"] = musicprog
 
-             # Scrivere i dati nel file config.json
-             with open(config_path, "w") as file:
-                json.dump(config, file, indent=4)
 
         try:
             speak(messages["other_messages"]["music_player_opened"].format(musicprog=musicprog))
@@ -785,7 +786,7 @@ def comrecon(comando):
               response = get_groq_response(comando)
 
               # Supponiamo che la funzione restituisca una stringa contenente l'URL
-              url = estrai_url_da_rispostaIA(response)  # Dovrai definire questa funzione
+              url = estrai_url_da_rispostaIA(response)  # Da definire questa funzione
 
               if url:
                 Thread(target=webbrowser.open, args=(url, 2), daemon=True).start()
@@ -1096,6 +1097,9 @@ def listen():
     else:
         grafica = uniwindow
 
+    #controllo player mp3 di default
+    musicprog = get_default_mp3_app()
+
     with sr.Microphone() as source:
        #recognizer.adjust_for_ambient_noise(source, duration=1.0) #crea problemi di sensibilità
        Thread(target=grafica,daemon=True).start()
@@ -1124,6 +1128,17 @@ def listen():
 
 #non viene eseguita la  funzione se caricata nello script main.py
 if __name__ == "__main__":
-    listen()
+
+
+   # Scrivere i dati nel file config.json
+   musicprog = get_default_mp3_app()
+   # Modifica solo il valore della chiave "musicplayer" in config.json
+   config["musicplayer"] = musicprog
+
+   # Scrivere i dati nel file config.json
+   with open(config_path, "w") as file:
+      json.dump(config, file, indent=4)
+
+   listen()
 
 

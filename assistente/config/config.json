@@ -4,6 +4,6 @@
     "sleep_time": 30,
     "deltavolume": 10,
     "layout": "uniwindow",
-    "musicplayer": "strawberry",
+    "musicplayer": "clementine",
     "browser": "vivaldi-stable"
 }
