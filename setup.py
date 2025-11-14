@@ -16,14 +16,37 @@ class PostInstallCommand(install):
 
         # Percorso del file .desktop sorgente
         source_file = os.path.join(os.path.dirname(__file__), "resources", "AI.desktop")
+        # Percorso del file icona
+        icon_file = os.path.join(os.path.dirname(__file__), "resources", "icon.png")
 
         # Crea le directory, se non esistono
         os.makedirs(autostart_dir, exist_ok=True)
         os.makedirs(applications_dir, exist_ok=True)
 
-        # Copia il file .desktop
-        shutil.copy(source_file, autostart_dir)
-        shutil.copy(source_file, applications_dir)
+        # Copia il file .desktop (shutil è stato sostituito dal codice sotto)
+        #shutil.copy(source_file, autostart_dir)
+        #shutil.copy(source_file, applications_dir)
+
+        # Leggi il file .desktop e sostituisci eventuali percorsi hardcoded
+        with open(source_file, "r") as f:
+            desktop_content = f.read()
+
+        # Sostituisci segnaposto con la home dell’utente
+        desktop_content = desktop_content.replace("{HOME}", user_home)
+
+
+        # Copia icon.png nello stesso target_dir dove scrivi AI.desktop
+        for target_dir in [autostart_dir, applications_dir]:
+
+           #copia icona
+           target_icon_file = os.path.join(target_dir, "icon.png")
+           shutil.copy(icon_file, target_icon_file)
+
+           # Scrivi il desktop file aggiornato
+           target_file = os.path.join(target_dir, "AI.desktop")
+            with open(target_file, "w") as f:
+                f.write(desktop_content)
+
         print("File .desktop installati con successo!")
 
 def install_portaudio():
@@ -62,6 +85,8 @@ setup(
               "data/*.csv",
               "script/.env",
               "config/*.json"
+              "resources/*.png",
+              "resources/*.desktop"
             ],
 
     },
