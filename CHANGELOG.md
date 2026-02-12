@@ -1,4 +1,10 @@
 # Changelog
+# [3.2.3] -2026-02-12
+-Inserito modello differente su ia groq . Disabilitato #model = "llama-3.1-8b-instant" e abilitato model = "openai/gpt-oss-120b"
+
+# [3.2.2] -2025-08-25 
+- Effettuate modifiche sulle routine di chiusura o uscite  del sistema inserendo prima il no del controllo dei pattern altrimenti il programma eseguuiva comunque il comando di chiusura o uscita indipendentemente da cosa veniva detto. 
+- Inserita anche l normalizzazione del comando esci a volte mal interpretata dal riconoscimento vocale 
 
 # [3.2.1.] -2025-06-19 
 - Inserito nella routine principale di assistente lo script per verificare il programma mp3 di default prima dell'avvio di listen 
