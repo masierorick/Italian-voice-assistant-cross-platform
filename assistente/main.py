@@ -295,7 +295,8 @@ def main():
      (p2 := Process(name='assistente', target=runassistente)).start()
 
      with open(current_dir + "/script/pid.py", 'w') as f:
-       f.write(f"\"pid2\" = {p2.pid}\n")
+       #f.write(f"\"pid2\" = {p2.pid}\n") scrive pid2 fra virgolette
+       f.write(f'pid2 = {p2.pid}\n')
        f.close()
 
    except (SystemExit, KeyboardInterrupt):
