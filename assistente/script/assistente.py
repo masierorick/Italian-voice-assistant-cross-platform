@@ -586,7 +586,7 @@ def estraipid(pid2):
        match = re.match(pattern, riga.strip())  # Cerca la corrispondenza
        if match:
             variabile = match.group(1)  # Variabile (prima del '=')
-            if ("pid2") in variabile:
+            if "pid2" in variabile:
               pid2 = int(match.group(2))  # Valore (dopo '=')
               #print (variabile, pid2)
 
