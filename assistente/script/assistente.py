@@ -11,6 +11,8 @@
 #pip install PyAudio
 #pip install python-dotenv
 #pip install google-api-python-client
+#pip install rapidfuzz
+
 
 #gruppi AI da installare
 #pip install groq
@@ -47,6 +49,8 @@ from PySide6.QtCore import QObject,Slot,Signal,QTimer
 from groq import Groq
 from openai import OpenAI
 from googleapiclient.discovery import build #serve per youtube api
+from ddgs import DDGS #effettua ricerche di indirizzi tramite duckduckgo
+
 
 load_dotenv()
 
@@ -125,27 +129,28 @@ youtube = build("youtube", "v3", developerKey=api_key_youtube)
 clientGroq = Groq(api_key=os.getenv("API_KEY"))
 
 #Deepseek API
-clientDeepseek = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key=os.getenv("APY_KEY_DEEPSEEK")
-)
+#clientDeepseek = OpenAI(
+  #base_url="https://openrouter.ai/api/v1",
+  #api_key=os.getenv("APY_KEY_DEEPSEEK")
+#)
 
-def get_deepseek_response(text):
-  italian_prompt = f"Rispondi in italiano.\nTesto dell'utente: {text}"
-  response = clientDeepseek.chat.completions.create(
-     model="deepseek/deepseek-r1:free",
-     messages=[{"role": "user","content": italian_prompt}]
-  )
-  if response and hasattr(response, "choices") and response.choices:
-        return response.choices[0].message.content
-  return "Errore nella risposta dell'API."
+#def get_deepseek_response(text):
+  #italian_prompt = f"Rispondi in italiano.\nTesto dell'utente: {text}"
+  #response = clientDeepseek.chat.completions.create(
+     #model="deepseek/deepseek-r1:free",
+     #messages=[{"role": "user","content": italian_prompt}]
+  #)
+  #if response and hasattr(response, "choices") and response.choices:
+        #return response.choices[0].message.content
+  #return "Errore nella risposta dell'API."
 
 
 def get_groq_response(text):
     """Funzione per ottenere risposta da Groq AI."""
     italian_prompt = f"Rispondi in italiano.\nTesto dell'utente: {text}"
     response = clientGroq.chat.completions.create(
-        model="Llama3-8b-8192",
+        #model = "llama-3.1-8b-instant",
+        model = "openai/gpt-oss-120b",
         messages=[{"role": "user", "content": italian_prompt}]
     )
     return response.choices[0].message.content
@@ -435,7 +440,7 @@ def get_default_mp3_app():
 
 def adattalingua(comando):
 
-  # Modifica comandi recepiti con nomi diversi in italiano
+  # Modifica comandi recepiti con nomi diversi in italiano da portare poi fuori dalllo script
     correzioni = {
         r"\bmito\b": "mitology",
         r"\bmitolo\b": "mitology",
@@ -451,7 +456,8 @@ def adattalingua(comando):
     }
 
     for errato, corretto in correzioni.items():
-        comando = comando.replace(errato, corretto)
+        #comando = comando.replace(errato, corretto)
+        comando = re.sub(errato, corretto, comando, flags=re.IGNORECASE)
     return comando
 
 
@@ -566,10 +572,10 @@ def chiudiProgrammi(listaprogrammi, comando):
 
 
 
-def scrivistatus(): # Funzione per deternimare lo stato attivo dell'assistente vocale
-  global attvo
-  with open(current_dir + "/status.py", 'w') as f:
-       f.write(f"\"attivo\" = {attivo}\n")
+def scrivistatus():
+    global attivo
+    with open(current_dir + "/status.py", 'w') as f:
+        f.write(f'attivo = {attivo}\n')  # Semplice, senza barre
 
 
 def estraipid(pid2):
@@ -684,7 +690,7 @@ def comrecon(comando):
     listaprogrammi = main_path / "data/listaprogrammi"
     listabookmarks = main_path / "data/bookmarks"
     pid1, pid2 = 0, 0
-    risposte_comando = messages["commands"]["reply"]
+    risposte_comando = messages["commands"]["reply"]  #equivale al si ,certo,certamente
     sistema = platform.system().lower()
 
     # Normalizzazione del comando
@@ -704,12 +710,18 @@ def comrecon(comando):
     def conferma_uscita(): #resa cross-platform
      global uscita
 
-     if any(re.search(pattern, comando, re.IGNORECASE) for pattern in risposte_comando):
-        rispondi_e_parla(messages["other_messages"]["shutdown_executed"])
+     if "no" in comando.lower():
+        uscita = False
+        rispondi_e_parla(messages["other_messages"]["shutdown_cancelled"])
 
+     elif any(re.search(pattern, comando, re.IGNORECASE) for pattern in risposte_comando):   #se la risposta è si ,certo ,certamente
+
+        rispondi_e_parla(random.choice(messages["other_messages"]["shutdown_executed"])) # risponde con spegnimento del sistema
+        rispondi_e_parla(random.choice(listsaluti))
 
         if sistema == "linux":
             # Spegnimento su Linux
+            #print(sistema)
             os.system("shutdown -h now")
         elif sistema == "windows":
             # Spegnimento su Windows
@@ -718,14 +730,17 @@ def comrecon(comando):
             # Spegnimento su macOS
             os.system("sudo shutdown -h now")
 
-     elif "no" in comando:
-        uscita = False
-        rispondi_e_parla(messages["other_messages"]["shutdown_cancelled"])
+
+
 
     def conferma_riavvio(): #resa cross-platform
      global riavvia
 
-     if any(re.search(pattern, comando, re.IGNORECASE) for pattern in risposte_comando):
+     if "no" in comando:
+        rispondi_e_parla(messages["other_messages"]["reboot_cancelled"])
+        riavvia = False
+
+     elif any(re.search(pattern, comando, re.IGNORECASE) for pattern in risposte_comando):
         rispondi_e_parla(messages["other_messages"]["reboot_executed"])
 
 
@@ -741,10 +756,6 @@ def comrecon(comando):
         else:
             rispondi_e_parla(messages["other_messages"]["reboot_failed"])
 
-     elif "no" in comando:
-        rispondi_e_parla(messages["other_messages"]["reboot_cancelled"])
-        riavvia = False
-
 
 
     def esegui_com(comando):
@@ -757,9 +768,9 @@ def comrecon(comando):
 
        #da tenere le funzioni riavvia e uscita in questo punto
        if riavvia:
-           conferma_riavvio()
+           conferma_riavvio() #controllo del riavvio
        if uscita:
-             conferma_uscita()
+             conferma_uscita() #controllo dello spegnimento
 
        if any(word in comando for word in messages["commands"]["exit"] + ["chiuditi"]) and any(word in comando for word in messages["objects"]["program"]):
           rispondi_e_parla(random.choice(listsaluti))
@@ -769,12 +780,14 @@ def comrecon(comando):
 
        if any(word in comando for word in messages["commands"]["restart"]) and any(word in comando  for word in messages["objects"]["pc"]):
             rispondi_e_parla(messages["other_messages"]["command_confirmation"]) #Sei sicuro?
-            riavvia = True
+            riavvia = True #variabile attiva per fare il controllo se riavviare effettivamente
 
 
        if any(word in comando for word in messages["commands"]["turnoff"]) and any(word in comando for word in messages["objects"]["pc"]):
            rispondi_e_parla(messages["other_messages"]["command_confirmation"]) #Sei sicuro?
-           uscita = True
+           uscita = True #variabile attiva per fare il controllo se riavviare effettivamente
+
+
 
 
        if any(word in comando for word in messages["commands"]["open"]):
@@ -857,6 +870,7 @@ def comrecon(comando):
        if "volume" in comando:
         setVolume(comando)
 
+       #comandi per effettuare la ricerca o su youtube o tramite ia
        if any(word in comando for word in messages["commands"]["search"]):
           if "youtube" in comando or youtubeopen:
             risultati = cerca_youtube(comando, max_risultati=5)
@@ -864,9 +878,17 @@ def comrecon(comando):
                 webbrowser.open(url)
 
        if any(word in comando for word in messages["commands"]["getAI"]) and "youtube" not in comando:
-          response = get_groq_response(comando)
-          # Avvia la finestra delle note in un nuovo processo
-          subprocess.Popen([sys.executable, "-c", f"from script.assistente import notes; notes({repr(response)})"])
+         if "internet" not in comando:
+           #response = get_deepseek_response(comando)
+           response = get_groq_response(comando)
+           # Avvia la finestra delle note in un nuovo processo
+           subprocess.Popen([sys.executable, "-c", f"from script.assistente import notes; notes({repr(response)})"])
+         #else:
+
+           #with DDGS() as ddgs:
+             # results = ddgs.text("radio 80 vibes", max_results=1) #usa duckduckgo come ricerca
+           #for r in results:
+            #  print(r["href"])  # URL da aprire nel browser
 
        # ELSE: Tutti i comandi che non corrispondono alle condizioni precedenti
        #else:
